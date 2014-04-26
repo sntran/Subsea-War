@@ -17,6 +17,7 @@
       this.depth = game.height/this.tiledim;
 
       this.walls = game.add.group();
+      this.water = [];
       this.submarines = game.add.group();
       this.torpedoes = game.add.group();
 
@@ -28,18 +29,23 @@
 
     detectWall: function(x, y, empty) {
       // Don't draw empty tile or tiles at the edges to ensure a closed map.
-      if (empty && x !== 0 && y !== 0 && x !== this.width -1 && y !== this.depth-1) {return;}
+      if (empty && x !== 0 && y !== 0 && x !== this.width -1 && y !== this.depth-1) {
+        this.water.push({x: x*this.tiledim, y: y*this.tiledim});
+        return;
+      }
 
       var wall = this.walls.create(x * this.tiledim, y * this.tiledim, 'sonar', 1);
+      wall.anchor.setTo(0.5, 0.5);
       this.game.physics.enable(wall, Phaser.Physics.ARCADE);
       wall.body.immovable = true;
     },
 
     buildConstructions: function() {
       /* start at center */
-      var center = new XY(Math.round(this._size.x/2), Math.round(this._size.y/2));
+      var centerX = Math.round(this.width/2), 
+          centerY = Math.round(this.depth/2);
       var dirs = ROT.DIRS[8];
-      var radius = 0;
+      var radius = 0, cells = this.walls;
 
       function adjustCenter(dir) {
         var c2 = new XY(center.x + radius * dir[0], center.y + radius * dir[1]);
@@ -87,11 +93,23 @@
 
       map.create(this.detectWall.bind(this));
       this.map = map;
+
+      this.flatLand();
+    },
+
+    flatLand: function() {
+
     },
 
     deploySubmarines: function() {
-      this.player = this.submarines.create(50, 50, 'sonar', 0);
-      this.enemy = this.submarines.create(100, 100, 'sonar', 0);
+      var topLeft = this.water.shift();
+      var bottomRight = this.water.pop();
+      this.player = this.submarines.create(topLeft.x, topLeft.y, 'sonar', 0);
+      this.enemy = this.submarines.create(bottomRight.x, bottomRight.y, 'sonar', 0);
+      this.player.anchor.setTo(0.5, 0.5);
+      this.enemy.anchor.setTo(0.5, 0.5);
+      // Flip the enemy vertically.
+      this.enemy.scale.x *= -1;
       this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
     },
 
@@ -101,7 +119,7 @@
         // Create each bullet and add it to the group.
         var torpedo = this.torpedoes.create(0, 0, 'sonar', 2);
         // Set its pivot point to the center
-        torpedo.anchor.setTo(0, 0);
+        torpedo.anchor.setTo(0.5, 0.5);
         // Enable physics on the torpedo
         game.physics.enable(torpedo, Phaser.Physics.ARCADE);
         // Set its initial state to "dead".
@@ -133,6 +151,7 @@
         // @TODO: Substract HP of the submarine from the bullet's damage.
         bullet.kill();
       });
+
       game.physics.arcade.collide(submarines, walls);
 
       if (this.upKey.isDown) {
