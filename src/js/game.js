@@ -1,20 +1,17 @@
 (function() {
   'use strict';
 
-  var SHOT_DELAY = 500, BULLET_SPEED = 500;
+  var SHOT_DELAY = 200, BULLET_SPEED = 200;
 
   function Game() {
     this.player = null;
     this.tiledim = 16;
-    this.lastBulletShotAt = null;
+    this.lastBulletShotAt = 0;
   }
 
   Game.prototype = {
 
     create: function () {
-      var x = this.game.width / 2
-        , y = this.game.height / 2;
-
       var game = this.game;
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
@@ -31,9 +28,9 @@
 
     detectWall: function(x, y, empty) {
       // Don't draw empty tile or tiles at the edges to ensure a closed map.
-      if (empty && x !== 0 && y !== 0 && x !== this.width -1 && y !== this.depth-1) return;
+      if (empty && x !== 0 && y !== 0 && x !== this.width -1 && y !== this.depth-1) {return;}
 
-      var wall = this.walls.create(x * this.tiledim, y * this.tiledim, "sonar", 1);
+      var wall = this.walls.create(x * this.tiledim, y * this.tiledim, 'sonar', 1);
       this.game.physics.enable(wall, Phaser.Physics.ARCADE);
       wall.body.immovable = true;
     },
@@ -44,12 +41,14 @@
       var dirs = ROT.DIRS[8];
       var radius = 0;
 
+      function adjustCenter(dir) {
+        var c2 = new XY(center.x + radius * dir[0], center.y + radius * dir[1]);
+        if (!(c2 in cells)) { center = c2; }
+      }
+
       while (center in cells) { /* find a starting free place */
         radius++;
-        dirs.forEach(function(dir) {
-          var c2 = new XY(center.x + radius * dir[0], center.y + radius * dir[1]);
-          if (!(c2 in cells)) { center = c2; }
-        });
+        dirs.forEach(adjustCenter);
       }
 
       /* flood fill free cells */
@@ -64,7 +63,7 @@
           free[xy2] = xy2;
           queue.push(xy2);
         });
-      }
+      };
       while (queue.length) { process();  }
     },
 
@@ -73,18 +72,18 @@
       var map = new ROT.Map.Cellular(this.width, this.depth, {
           born: [4, 5, 6, 7, 8],
           survive: [3, 4, 5, 6, 7, 8]
-      });
+      }), i;
 
       map.randomize(0.45);
 
-      for (var i=0; i<2; i++) { map.create(); }
+      for (i=0; i<2; i++) { map.create(); }
 
       map.setOptions({
         born: [5, 6, 7, 8],
         survive: [4, 5, 6, 7, 8]
       });
 
-      for (var i=0; i<2; i++) { map.create(); }
+      for (i=0; i<2; i++) { map.create(); }
 
       map.create(this.detectWall.bind(this));
       this.map = map;
@@ -92,7 +91,7 @@
 
     deploySubmarines: function() {
       this.player = this.submarines.create(50, 50, 'sonar', 0);
-      var enemy = this.submarines.create(100, 100, 'sonar', 0);
+      this.enemy = this.submarines.create(100, 100, 'sonar', 0);
       this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
     },
 
@@ -116,7 +115,7 @@
       this.downKey = keyboard.addKey(Phaser.Keyboard.DOWN);
       this.leftKey = keyboard.addKey(Phaser.Keyboard.LEFT);
       this.rightKey = keyboard.addKey(Phaser.Keyboard.RIGHT);
-      this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR)
+      this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
     },
 
     update: function () {
@@ -125,22 +124,7 @@
           walls = this.walls,
           submarines = this.submarines,
           player = this.player;
-      // var x, y, cx, cy, dx, dy, angle, scale;
 
-      // x = this.input.position.x;
-      // y = this.input.position.y;
-      // cx = this.world.centerX;
-      // cy = this.world.centerY;
-
-      // angle = Math.atan2(y - cy, x - cx) * (180 / Math.PI);
-      // this.player.angle = angle;
-
-      // dx = x - cx;
-      // dy = y - cy;
-      // scale = Math.sqrt(dx * dx + dy * dy) / 100;
-
-      // this.player.scale.x = scale * 0.6;
-      // this.player.scale.y = scale * 0.6;
       game.physics.arcade.collide(torpedoes, walls, function(bullet, wall) {
         bullet.kill();
       });
@@ -174,15 +158,15 @@
       // the time that each bullet is shot and testing if
       // the amount of time since the last shot is more than
       // the required delay.
-      if (lastBulletShotAt === undefined) lastBulletShotAt = 0;
-      if (game.time.now - lastBulletShotAt < SHOT_DELAY) return;
-      lastBulletShotAt = game.time.now;
+      if (lastBulletShotAt === undefined) {lastBulletShotAt = 0;}
+      if (game.time.now - lastBulletShotAt < SHOT_DELAY) {return;}
+      this.lastBulletShotAt = game.time.now;
 
       // Get a dead bullet from the pool
       var bullet = this.torpedoes.getFirstDead();
 
       // If there aren't any bullets available then don't shoot
-      if (bullet === null || bullet === undefined) return;
+      if (bullet === null || bullet === undefined) {return;}
 
       // Revive the bullet
       // This makes the bullet "alive"
