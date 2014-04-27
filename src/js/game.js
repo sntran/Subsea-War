@@ -3,6 +3,11 @@
 
   var SHOT_DELAY = 200, BULLET_SPEED = 200, EMPTY = 1, WALL = 0;
 
+  var Lamp = illuminated.Lamp
+  , RectangleObject = illuminated.RectangleObject
+  , Vec2 = illuminated.Vec2
+  , Lighting = illuminated.Lighting;
+
   if (!Array.prototype.every)
   {
     Array.prototype.every = function(fun /*, thisArg */)
@@ -52,14 +57,28 @@
       var game = this.game;
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
+      game.physics.startSystem(Phaser.Physics.ARCADE);
+
+      this.bitmap = game.add.bitmapData(game.width, game.height);
+      game.add.sprite(0, 0, this.bitmap);
 
       this.walls = game.add.group();
+      this.walls.enableBody = true;
+      this.walls.physicsBodyType = Phaser.Physics.ARCADE;
+
       this.water = [];
+
       this.submarines = game.add.group();
+      this.submarines.enableBody = true;
+      this.submarines.physicsBodyType = Phaser.Physics.ARCADE;
+
       this.torpedoes = game.add.group();
+      this.torpedoes.enableBody = true;
+      this.torpedoes.physicsBodyType = Phaser.Physics.ARCADE;
 
       this.locateMap();
       this.deploySubmarines();
+      this.enterSilentMode();
       this.loadWeapons();
       this.assignControls();
     },
@@ -75,39 +94,6 @@
       wall.anchor.setTo(0.5, 0.5);
       this.game.physics.enable(wall, Phaser.Physics.ARCADE);
       wall.body.immovable = true;
-    },
-
-    buildConstructions: function() {
-      /* start at center */
-      var centerX = Math.round(this.width/2), 
-          centerY = Math.round(this.depth/2);
-      var dirs = ROT.DIRS[8];
-      var radius = 0, cells = this.walls;
-
-      function adjustCenter(dir) {
-        var c2 = new XY(center.x + radius * dir[0], center.y + radius * dir[1]);
-        if (!(c2 in cells)) { center = c2; }
-      }
-
-      while (center in cells) { /* find a starting free place */
-        radius++;
-        dirs.forEach(adjustCenter);
-      }
-
-      /* flood fill free cells */
-      free[center] = center;
-      var queue = [center];
-      var process = function() {
-        var xy = queue.shift();
-
-        dirs.forEach(function(dir) {
-          var xy2 = new XY(xy.x + dir[0], xy.y + dir[1]);
-          if (xy2 in cells || xy2 in free) { return; }
-          free[xy2] = xy2;
-          queue.push(xy2);
-        });
-      };
-      while (queue.length) { process();  }
     },
 
     locateMap: function() {
@@ -280,7 +266,6 @@
       var tiledim = this.tiledim;
 
       this.player = this.submarines.create(topLeft.x*tiledim, topLeft.y*tiledim, 'sonar', 0);
-      
       this.enemy = this.submarines.create(bottomRight.x*tiledim, bottomRight.y*tiledim, 'sonar', 0);
       this.player.anchor.setTo(0.5, 0.5);
       this.enemy.anchor.setTo(0.5, 0.5);
@@ -289,9 +274,15 @@
       this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
     },
 
+    isPassable: function(x, y) {
+      var internalMap = this.map._map, width = this.width, depth = this.depth;
+      if (x < 0 || x >= width || y < 0 || y >= depth) { return false; }
+      // In our map, 
+      return internalMap[x][y] === EMPTY;
+    },
+
     findLocations: function() {
-      var internalMap = this.map._map, tiledim = this.tiledim, 
-          width = this.width, depth = this.depth, water = this.water;
+      var internalMap = this.map._map, tiledim = this.tiledim;
       // It's not fun playing in small pond
       if (this.water.length < 30) return false;
 
@@ -299,12 +290,7 @@
       var bottomRight = this.water.pop();
       var reachable = false, results = [];
 
-      var passableCallback = function(x, y) {
-        if (x < 0 || x >= width || y < 0 || y >= depth) { return false; }
-        // In our map, 
-        return internalMap[x][y] === EMPTY;
-      }
-      var astar = new ROT.Path.AStar(topLeft.x, topLeft.y, passableCallback);
+      var astar = new ROT.Path.AStar(topLeft.x, topLeft.y, this.isPassable.bind(this));
       /* compute from topLeft to bottomRight */
       astar.compute(bottomRight.x, bottomRight.y, function (x, y) {
         if (reachable) {
@@ -320,6 +306,33 @@
       if (reachable) return results;
       // They are separated, we just shift() and pop() again.
       return this.findLocations();
+    },
+
+    enterSilentMode: function() {
+      var internalMap = this.map._map, self = this;
+      var player = this.player, tiledim = this.tiledim;
+
+      this.light = new Lamp({
+        position: new Vec2(player.x, player.y),
+        color: '519ab8',
+        distance: 64, // Intensity
+        // radius: 20,
+        // samples: 50,
+        diffuse: 0.5
+      });
+
+      var litObjects = [];
+      this.walls.forEach(function (cell) {
+        litObjects.push(new RectangleObject({ 
+          topleft: new Vec2(cell.x, cell.y), 
+          bottomright: new Vec2(cell.x+tiledim, cell.y+tiledim) 
+        }));
+      });
+
+      this.lighting = new Lighting({
+        light: this.light,
+        objects: litObjects
+      });
     },
 
     loadWeapons: function() {
@@ -361,7 +374,7 @@
         bullet.kill();
       });
 
-      game.physics.arcade.collide(submarines, walls);
+      game.physics.arcade.overlap(submarines, walls);
 
       if (this.upKey.isDown) {
         player.y--;
@@ -378,6 +391,20 @@
       if (this.actionKey.isDown) {
         this.shootBullet();
       }
+
+      this.computeLighting();
+    },
+
+    computeLighting: function() {
+      var player = this.player, bitmap = this.bitmap;
+      // Update the light's position    
+      this.light.position = new Vec2(player.x, player.y);
+      var lighting = this.lighting;
+      lighting.compute(bitmap.canvas.width, bitmap.canvas.height);
+      bitmap.context.fillStyle = "black";
+      bitmap.context.fillRect(0, 0, bitmap.canvas.width, bitmap.canvas.height);
+      lighting.render(bitmap.context);
+      bitmap.dirty = true;
     },
 
     shootBullet: function() {
@@ -420,14 +447,6 @@
     },
 
     render: function() {
-      // walls.forEach(function (wall) {
-      //   //game.debug.geom(wall,'#6dd0f7');
-      //   game.debug.spriteBounds(wall);
-      //   // game.debug.spriteCorners(wall, true, true);
-      // });
-      // game.debug.spriteBounds(player);
-      // game.debug.spriteBounds(player);
-      // game.debug.spriteBounds(torpedoes);
     }
 
   };
