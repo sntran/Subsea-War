@@ -61,10 +61,6 @@
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
 
-      // this.tiledim *= 3;
-
-      // game.world.setBounds(0, 0, this.width*this.tiledim*3, this.depth*this.tiledim*3);
-
       game.physics.startSystem(Phaser.Physics.ARCADE);
       //  Enable p2 physics
       game.physics.startSystem(Phaser.Physics.P2JS);
@@ -77,9 +73,13 @@
       this.submarinesCollisionGroup = game.physics.p2.createCollisionGroup();
       this.wallsCollisionGroup = game.physics.p2.createCollisionGroup();
       this.bulletsCollisionGroup = game.physics.p2.createCollisionGroup();
+      this.edgeWallsCollisionGroup = game.physics.p2.createCollisionGroup();
 
-      this.bitmap = game.add.bitmapData(game.width, game.height);
-      game.add.sprite(0, 0, this.bitmap);
+      this.lightingBitmap = game.add.bitmapData(game.width, game.height);
+      this.trailTexture = game.add.renderTexture(game.width, game.height, 'pingtrail');
+
+      game.add.sprite(0, 0, this.lightingBitmap);
+      game.add.sprite(0, 0, this.trailTexture);
 
       this.walls = game.add.group();
       this.walls.enableBody = true;
@@ -144,7 +144,7 @@
       var tiledim = this.tiledim, dirs = ROT.DIRS[8], self = this;
       var internalMap = this.map._map, width = this.width, depth = this.depth;
 
-      var edgeWalls = this.edgeWalls = [];
+      // var edgeWalls = this.edgeWalls = this.game.add.group();
 
       this.walls.forEach(function (cell, idx) {
         var cellX = cell.x/tiledim, cellY = cell.y/tiledim;
@@ -162,7 +162,9 @@
 
         var length = water.length;
         // We keep track of the walls near the water.
-        if (length !== 0) edgeWalls.push(cell); 
+        if (length !== 0) {
+          cell.body.setCollisionGroup(self.edgeWallsCollisionGroup); 
+        }
 
         // Only care for corner walls.
         if (length < 3 || length > 5) {return;}
@@ -285,14 +287,15 @@
       this.player = new NS.Player(this.game, topLeft.x*tiledim, topLeft.y*tiledim, 10);
       this.enemy = new NS.Enemy(this.game, bottomRight.x*tiledim, bottomRight.y*tiledim, 10);
       this.enemy.scale.x *= -1;
+      this.enemy.visible = false;
 
       this.submarines.add(this.player);
       this.submarines.add(this.enemy);
 
       this.player.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
-      this.player.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
-      this.enemy.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
+      this.player.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup]);
+      this.enemy.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup]);
 
       // this.game.camera.follow(this.player);
     },
@@ -371,7 +374,7 @@
         game.physics.p2.enable(torpedo, false);
         // Set its initial state to "dead".
         torpedo.body.setCollisionGroup(this.bulletsCollisionGroup);
-        torpedo.body.collides(this.wallsCollisionGroup, function(bulletBody, wallBody) {
+        torpedo.body.collides(this.edgeWallsCollisionGroup, function(bulletBody, wallBody) {
           bulletBody.sprite.kill();
         });
         torpedo.body.collides(this.submarinesCollisionGroup);
@@ -379,13 +382,18 @@
         torpedo.kill();
       }
 
-      this.sonar = game.add.sprite(0, 0, 'sonar', 4);
+      var sonar = this.sonar = game.add.sprite(0, 0, 'sonar', 4);
       game.physics.p2.enable(this.sonar, false);
-      this.sonar.body.allowRotation = false;
-      this.sonar.body.fixedRotation = true;
-      this.sonar.body.setCollisionGroup(this.bulletsCollisionGroup);
-      this.sonar.body.collides(this.wallsCollisionGroup);
-      this.sonar.kill();
+      sonar.anchor.setTo(0.5, 0.5);
+      sonar.body.allowRotation = false;
+      sonar.body.fixedRotation = true;
+      sonar.body.setCollisionGroup(this.bulletsCollisionGroup);
+      sonar.lifespan = 3000;
+      sonar.body.collides([this.wallsCollisionGroup]);
+      sonar.body.collides(this.edgeWallsCollisionGroup, function(_, wallBody) {
+        console.log("Hit edge wall");
+      });
+      sonar.kill();
     },
 
     assignControls: function() {
@@ -412,11 +420,12 @@
         this.ping();
       }
 
+      this.computePingTrail();
       this.computeLighting();
     },
 
     computeLighting: function() {
-      var player = this.player, bitmap = this.bitmap, canvas = bitmap.canvas, context = bitmap.context;
+      var player = this.player, bitmap = this.lightingBitmap, canvas = bitmap.canvas, context = bitmap.context;
       // Update the light's position    
       this.light.position = new Vec2(player.x, player.y);
       var lighting = this.lighting;
@@ -427,6 +436,13 @@
       context.fillRect(0, 0, canvas.width, canvas.height);
       lighting.render(context);
       bitmap.dirty = true;
+    },
+
+    computePingTrail: function() {
+      var sonar = this.sonar;
+      var bitmap = this.trailTexture;
+      // var canvas = bitmap.canvas, context = bitmap.context;
+      bitmap.renderXY(sonar, sonar.x, sonar.y, !sonar.alive);
     },
 
     shootBullet: function() {
@@ -446,6 +462,8 @@
 
     ping: function() {
       this.sonar.revive();
+      // this.sonar.health = 5;
+      this.sonar.lifespan = 3000;
       this.sonar.reset(this.player.x - 8, this.player.y - 8);
       this.game.physics.arcade.moveToPointer(this.sonar, 300);
     },
