@@ -3,6 +3,43 @@
 
   var SHOT_DELAY = 200, BULLET_SPEED = 200;
 
+  if (!Array.prototype.every)
+  {
+    Array.prototype.every = function(fun /*, thisArg */)
+    {
+      'use strict';
+
+      if (this === void 0 || this === null)
+        throw new TypeError();
+
+      var t = Object(this);
+      var len = t.length >>> 0;
+      if (typeof fun !== 'function')
+          throw new TypeError();
+
+      var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+      for (var i = 0; i < len; i++)
+      {
+        if (i in t && !fun.call(thisArg, t[i], i, t))
+          return false;
+      }
+
+      return true;
+    };
+  }
+
+  function arrayEquals(arr1, arr2) {
+    if (arr1.length !== arr2.length) return false;
+    return arr1.every(function (elem, idx) {
+      var elem2 = arr2[idx];
+      if (elem instanceof Array && elem2 instanceof Array) {
+        return arrayEquals(elem, elem2);
+      }
+      if (elem != elem2) return false;
+      return true;
+    });
+  }
+
   function Game() {
     this.player = null;
     this.tiledim = 16;
@@ -98,13 +135,147 @@
     },
 
     flatLand: function() {
+      var tiledim = this.tiledim, dirs = ROT.DIRS[8], self = this;
+      var internalMap = this.map._map, width = this.width, depth = this.depth;
 
+      var done = {};
+
+      this.walls.forEach(function (cell, idx) {
+        var cellX = cell.x/tiledim, cellY = cell.y/tiledim;
+
+        if (cellX === 0 || cellY === 0 || cellX === width -1 || cellY === depth-1) {return ;}
+        var water = [];
+        dirs.forEach(function (dir) {
+          var dirX = dir[0], dirY = dir[1];
+          //We only want to check the corners.
+          // if (Math.abs(dirX) !== Math.abs(dirY)) {return;}
+          var x = cellX + dirX, y = cellY + dirY;
+          if (x < 0 || x >= width || y < 0 || y >= depth) { return; }
+          if (internalMap[x][y] === 0) {return; }
+          // At this point, we get the water cell at this corner.
+          water.push(dir);
+        });
+
+        var length = water.length;
+        // Only care for corner walls.
+        if (length < 3 || length > 5) {return;}
+
+        if (length === 3 || length === 4) {
+          // Corner near the edge walls.
+          // setTimeout(function() {
+          //   cell.scale.setTo(1.5, 1.5);
+          //   cell.angle = 45;
+          // }, 2000);
+          // cell.scale.setTo(1.5, 1.5);
+          // cell.angle = 45;
+        }
+
+        if (arrayEquals(water, [[1,0], [1,1], [0,1]]) 
+          || arrayEquals(water, [[1,-1], [1,0], [1,1], [0,1]])
+          || arrayEquals(water, [[1,0], [1,1], [0,1], [-1,1]])
+          || arrayEquals(water, [[1,0], [1,1], [0,1], [-1,-1]])
+        ) {
+          /////|
+          ///--
+          // setTimeout(function() {
+          //   // cell.scale.setTo(1.5, 1.5);
+          //   // cell.angle = 45;
+          //   cell.x -= tiledim/2;
+          //   cell.y -= tiledim/2;
+          // }, 2000);
+          cell.scale.setTo(1.5, 1.5);
+          cell.angle = 45;
+          cell.x -= tiledim/2;
+          cell.y -= tiledim/2;
+          return;
+        }
+
+        if (arrayEquals(water, [[0,-1], [1,-1], [1,0]]) 
+          || arrayEquals(water, [[0,-1], [1,-1], [1,0], [-1,-1]])
+          || arrayEquals(water, [[0,-1], [1,-1], [1,0], [1,1]])
+        ) {
+          //__
+          ////|
+          // setTimeout(function() {
+          //   // cell.scale.setTo(1.5, 1.5);
+          //   // cell.angle = 45;
+          //   cell.x -= tiledim/2;
+          //   cell.y += tiledim/2;
+          // }, 2000);
+          cell.scale.setTo(1.5, 1.5);
+          cell.angle = 45;
+          cell.x -= tiledim/2;
+          cell.y += tiledim/2;
+          return;
+        }
+
+        if (arrayEquals(water, [[0,1], [-1,1], [-1,0]]) 
+          || arrayEquals(water, [[1,1], [0,1], [-1,1], [-1,0]])
+          || arrayEquals(water, [[0,1], [-1,1], [-1,0], [-1,-1]])) {
+          //|//
+          //|//_
+          // setTimeout(function() {
+          //   // cell.scale.setTo(1.5, 1.5);
+          //   // cell.angle = 45;
+          //   cell.x += tiledim/2;
+          //   cell.y -= tiledim/2;
+          // }, 2000);
+          cell.scale.setTo(1.5, 1.5);
+          cell.angle = 45;
+          cell.x += tiledim/2;
+          cell.y -= tiledim/2;
+          return;
+        }
+
+        if (arrayEquals(water, [[0,-1], [-1,0], [-1,-1]])
+          || arrayEquals(water, [[0,-1], [-1,1], [-1,0], [-1,-1]])
+          || arrayEquals(water, [[0,-1], [1,-1], [-1,0], [-1,-1]])
+        ) {
+          // ___
+          //|///
+          // setTimeout(function() {
+          //   // cell.scale.setTo(1.5, 1.5);
+          //   // cell.angle = 45;
+          //   cell.x += tiledim/2;
+          //   cell.y += tiledim/2;
+          // }, 2000);
+          cell.scale.setTo(1.5, 1.5);
+          cell.angle = 45;
+          cell.x += tiledim/2;
+          cell.y += tiledim/2;
+          return;
+        }
+
+        if (length === 5) {
+          
+          // cell.x -= tiledim/2;
+          // cell.y -= tiledim/2;
+        }
+
+        if (arrayEquals(water, [[1,1], [0,1], [-1,1]])
+          || arrayEquals(water, [[-1,1], [-1,0], [-1,-1]])
+          || arrayEquals(water, [[1,-1], [1,0], [1,1]])
+          || arrayEquals(water, [[0,-1], [1,-1], [-1,-1]])
+        ) {
+          // These are flat walls
+          return;
+        }
+
+        if (arrayEquals(water, [[1,-1], [1,1], [-1,1]])) {
+          // A center wall where there are walls on the sides, but not corners
+          return;
+        }
+
+
+        console.log(water)
+      });
     },
 
     deploySubmarines: function() {
       var topLeft = this.water.shift();
       var bottomRight = this.water.pop();
       this.player = this.submarines.create(topLeft.x, topLeft.y, 'sonar', 0);
+      // @TODO: Find a path between the submarines. If not, move it somewhere else.
       this.enemy = this.submarines.create(bottomRight.x, bottomRight.y, 'sonar', 0);
       this.player.anchor.setTo(0.5, 0.5);
       this.enemy.anchor.setTo(0.5, 0.5);
