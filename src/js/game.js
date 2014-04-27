@@ -1,7 +1,7 @@
 (function() {
   'use strict';
 
-  var SHOT_DELAY = 200, BULLET_SPEED = 200;
+  var SHOT_DELAY = 200, BULLET_SPEED = 200, EMPTY = 1, WALL = 0;
 
   if (!Array.prototype.every)
   {
@@ -67,7 +67,7 @@
     detectWall: function(x, y, empty) {
       // Don't draw empty tile or tiles at the edges to ensure a closed map.
       if (empty && x !== 0 && y !== 0 && x !== this.width -1 && y !== this.depth-1) {
-        this.water.push({x: x*this.tiledim, y: y*this.tiledim});
+        this.water.push({x: x, y: y});
         return;
       }
 
@@ -151,7 +151,7 @@
           // if (Math.abs(dirX) !== Math.abs(dirY)) {return;}
           var x = cellX + dirX, y = cellY + dirY;
           if (x < 0 || x >= width || y < 0 || y >= depth) { return; }
-          if (internalMap[x][y] === 0) {return; }
+          if (internalMap[x] && internalMap[x][y] === WALL) {return; }
           // At this point, we get the water cell at this corner.
           water.push(dir);
         });
@@ -265,23 +265,61 @@
           // A center wall where there are walls on the sides, but not corners
           return;
         }
-
-
-        console.log(water)
       });
     },
 
     deploySubmarines: function() {
-      var topLeft = this.water.shift();
-      var bottomRight = this.water.pop();
-      this.player = this.submarines.create(topLeft.x, topLeft.y, 'sonar', 0);
-      // @TODO: Find a path between the submarines. If not, move it somewhere else.
-      this.enemy = this.submarines.create(bottomRight.x, bottomRight.y, 'sonar', 0);
+      var possibleLocations = this.findLocations();
+      while (!possibleLocations) {
+        this.locateMap();
+        this.deploySubmarines();
+      }
+
+      var topLeft = possibleLocations[0];
+      var bottomRight = possibleLocations[1];
+      var tiledim = this.tiledim;
+
+      this.player = this.submarines.create(topLeft.x*tiledim, topLeft.y*tiledim, 'sonar', 0);
+      
+      this.enemy = this.submarines.create(bottomRight.x*tiledim, bottomRight.y*tiledim, 'sonar', 0);
       this.player.anchor.setTo(0.5, 0.5);
       this.enemy.anchor.setTo(0.5, 0.5);
       // Flip the enemy vertically.
       this.enemy.scale.x *= -1;
       this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
+    },
+
+    findLocations: function() {
+      var internalMap = this.map._map, tiledim = this.tiledim, 
+          width = this.width, depth = this.depth, water = this.water;
+      // It's not fun playing in small pond
+      if (this.water.length < 30) return false;
+
+      var topLeft = this.water.shift();
+      var bottomRight = this.water.pop();
+      var reachable = false, results = [];
+
+      var passableCallback = function(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= depth) { return false; }
+        // In our map, 
+        return internalMap[x][y] === EMPTY;
+      }
+      var astar = new ROT.Path.AStar(topLeft.x, topLeft.y, passableCallback);
+      /* compute from topLeft to bottomRight */
+      astar.compute(bottomRight.x, bottomRight.y, function (x, y) {
+        if (reachable) {
+
+          results.push(topLeft);
+          results.push(bottomRight);
+          return;
+        }
+        // If this callback is called, we have a path, set the flag to skip the rest of the callbacks.
+        reachable = true;
+      });
+
+      if (reachable) return results;
+      // They are separated, we just shift() and pop() again.
+      return this.findLocations();
     },
 
     loadWeapons: function() {
