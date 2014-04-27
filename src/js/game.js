@@ -60,23 +60,34 @@
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
       game.physics.startSystem(Phaser.Physics.ARCADE);
+      //  Enable p2 physics
+      game.physics.startSystem(Phaser.Physics.P2JS);
+      //  Turn on impact events for the world, without this we get no collision callbacks
+      game.physics.p2.setImpactEvents(true);
+      //  Make things a bit more bouncey
+      game.physics.p2.restitution = 0.8;
+
+      //  Create our collision groups.
+      this.submarinesCollisionGroup = game.physics.p2.createCollisionGroup();
+      this.wallsCollisionGroup = game.physics.p2.createCollisionGroup();
+      this.bulletsCollisionGroup = game.physics.p2.createCollisionGroup();
 
       this.bitmap = game.add.bitmapData(game.width, game.height);
       game.add.sprite(0, 0, this.bitmap);
 
       this.walls = game.add.group();
       this.walls.enableBody = true;
-      this.walls.physicsBodyType = Phaser.Physics.ARCADE;
+      this.walls.physicsBodyType = Phaser.Physics.P2JS;
 
       this.water = [];
 
       this.submarines = game.add.group();
       this.submarines.enableBody = true;
-      this.submarines.physicsBodyType = Phaser.Physics.ARCADE;
+      this.submarines.physicsBodyType = Phaser.Physics.P2JS;
 
       this.torpedoes = game.add.group();
       this.torpedoes.enableBody = true;
-      this.torpedoes.physicsBodyType = Phaser.Physics.ARCADE;
+      this.torpedoes.physicsBodyType = Phaser.Physics.P2JS;
 
       this.locateMap();
       this.deploySubmarines();
@@ -93,8 +104,10 @@
 
       var wall = this.walls.create(x * this.tiledim, y * this.tiledim, 'sonar', 1);
       wall.anchor.setTo(0.5, 0.5);
-      this.game.physics.enable(wall, Phaser.Physics.ARCADE);
-      wall.body.immovable = true;
+      this.game.physics.enable(wall, Phaser.Physics.P2JS);
+      wall.body.static = true;
+      wall.body.setCollisionGroup(this.wallsCollisionGroup);
+      wall.body.collides([this.submarinesCollisionGroup, this.bulletsCollisionGroup]);
     },
 
     locateMap: function() {
@@ -151,10 +164,10 @@
           // Corner near the edge walls.
           // setTimeout(function() {
           //   cell.scale.setTo(1.5, 1.5);
-          //   cell.angle = 45;
+          //   cell.body.angle = 45;
           // }, 2000);
           // cell.scale.setTo(1.5, 1.5);
-          // cell.angle = 45;
+          // cell.body.angle = 45;
         }
 
         if (arrayEquals(water, [[1,0], [1,1], [0,1]]) 
@@ -166,14 +179,13 @@
           ///--
           // setTimeout(function() {
           //   // cell.scale.setTo(1.5, 1.5);
-          //   // cell.angle = 45;
+          //   // cell.body.angle = 45;
           //   cell.x -= tiledim/2;
           //   cell.y -= tiledim/2;
           // }, 2000);
           cell.scale.setTo(1.5, 1.5);
-          cell.angle = 45;
-          cell.x -= tiledim/2;
-          cell.y -= tiledim/2;
+          cell.body.angle = 45;
+          cell.body.reset(cell.x - tiledim/2, cell.y - tiledim/2);
           return;
         }
 
@@ -185,14 +197,13 @@
           ////|
           // setTimeout(function() {
           //   // cell.scale.setTo(1.5, 1.5);
-          //   // cell.angle = 45;
+          //   // cell.body.angle = 45;
           //   cell.x -= tiledim/2;
           //   cell.y += tiledim/2;
           // }, 2000);
           cell.scale.setTo(1.5, 1.5);
-          cell.angle = 45;
-          cell.x -= tiledim/2;
-          cell.y += tiledim/2;
+          cell.body.angle = 45;
+          cell.body.reset(cell.x - tiledim/2, cell.y + tiledim/2);
           return;
         }
 
@@ -203,14 +214,13 @@
           //|//_
           // setTimeout(function() {
           //   // cell.scale.setTo(1.5, 1.5);
-          //   // cell.angle = 45;
+          //   // cell.body.angle = 45;
           //   cell.x += tiledim/2;
           //   cell.y -= tiledim/2;
           // }, 2000);
           cell.scale.setTo(1.5, 1.5);
-          cell.angle = 45;
-          cell.x += tiledim/2;
-          cell.y -= tiledim/2;
+          cell.body.angle = 45;
+          cell.body.reset(cell.x + tiledim/2, cell.y - tiledim/2);
           return;
         }
 
@@ -222,14 +232,13 @@
           //|///
           // setTimeout(function() {
           //   // cell.scale.setTo(1.5, 1.5);
-          //   // cell.angle = 45;
+          //   // cell.body.angle = 45;
           //   cell.x += tiledim/2;
           //   cell.y += tiledim/2;
           // }, 2000);
           cell.scale.setTo(1.5, 1.5);
-          cell.angle = 45;
-          cell.x += tiledim/2;
-          cell.y += tiledim/2;
+          cell.body.angle = 45;
+          cell.body.reset(cell.x + tiledim/2, cell.y + tiledim/2);
           return;
         }
 
@@ -272,7 +281,11 @@
 
       this.submarines.add(this.player);
       this.submarines.add(this.enemy);
-      this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
+      
+      this.player.body.setCollisionGroup(this.submarinesCollisionGroup);
+      this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
+      this.player.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
+      this.enemy.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
     },
 
     isPassable: function(x, y) {
@@ -344,10 +357,24 @@
         // Set its pivot point to the center
         torpedo.anchor.setTo(0.5, 0.5);
         // Enable physics on the torpedo
-        game.physics.enable(torpedo, Phaser.Physics.ARCADE);
+        game.physics.p2.enable(torpedo, false);
         // Set its initial state to "dead".
+        torpedo.body.setCollisionGroup(this.bulletsCollisionGroup);
+        torpedo.body.collides(this.wallsCollisionGroup, function(bulletBody, wallBody) {
+          bulletBody.sprite.kill();
+        });
+        torpedo.body.collides(this.submarinesCollisionGroup);
+        torpedo.body.fixedRotation = true;
         torpedo.kill();
       }
+
+      this.sonar = game.add.sprite(0, 0, 'sonar', 4);
+      game.physics.p2.enable(this.sonar, false);
+      this.sonar.body.allowRotation = false;
+      this.sonar.body.fixedRotation = true;
+      this.sonar.body.setCollisionGroup(this.bulletsCollisionGroup);
+      this.sonar.body.collides(this.wallsCollisionGroup);
+      this.sonar.kill();
     },
 
     assignControls: function() {
@@ -366,19 +393,12 @@
           submarines = this.submarines,
           player = this.player;
 
-      game.physics.arcade.collide(torpedoes, walls, function(bullet, wall) {
-        bullet.kill();
-      });
-
-      game.physics.arcade.collide(submarines, torpedoes, function(submarine, bullet) {
-        // @TODO: Substract HP of the submarine from the bullet's damage.
-        bullet.kill();
-      });
-
-      game.physics.arcade.overlap(submarines, walls);
-
       if (this.input.keyboard.isDown(Phaser.Keyboard.SPACEBAR)) {
         this.shootBullet();
+      }
+
+      if (game.input.activePointer.isDown) {
+        this.ping();
       }
 
       this.computeLighting();
@@ -409,6 +429,16 @@
       // Get a dead bullet from the pool
       var bullet = this.torpedoes.getFirstDead();
       this.player.shootBullet(bullet);
+    },
+
+    ping: function() {
+      this.sonar.revive();
+      this.sonar.reset(this.player.x - 8, this.player.y - 8);
+      this.game.physics.arcade.moveToPointer(this.sonar, 300);
+    },
+
+    render: function() {
+      // this.game.debug.spriteBounds(this.walls);
     }
 
   };
