@@ -8,7 +8,8 @@
   var Lamp = window.illuminated.Lamp
   , RectangleObject = window.illuminated.RectangleObject
   , Vec2 = window.illuminated.Vec2
-  , Lighting = window.illuminated.Lighting;
+  , Lighting = window.illuminated.Lighting
+  , DarkMask = window.illuminated.DarkMask;
 
   if (!Array.prototype.every)
   {
@@ -59,6 +60,11 @@
       var game = this.game;
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
+
+      // this.tiledim *= 3;
+
+      // game.world.setBounds(0, 0, this.width*this.tiledim*3, this.depth*this.tiledim*3);
+
       game.physics.startSystem(Phaser.Physics.ARCADE);
       //  Enable p2 physics
       game.physics.startSystem(Phaser.Physics.P2JS);
@@ -138,7 +144,7 @@
       var tiledim = this.tiledim, dirs = ROT.DIRS[8], self = this;
       var internalMap = this.map._map, width = this.width, depth = this.depth;
 
-      var done = {};
+      var edgeWalls = this.edgeWalls = [];
 
       this.walls.forEach(function (cell, idx) {
         var cellX = cell.x/tiledim, cellY = cell.y/tiledim;
@@ -147,8 +153,6 @@
         var water = [];
         dirs.forEach(function (dir) {
           var dirX = dir[0], dirY = dir[1];
-          //We only want to check the corners.
-          // if (Math.abs(dirX) !== Math.abs(dirY)) {return;}
           var x = cellX + dirX, y = cellY + dirY;
           if (x < 0 || x >= width || y < 0 || y >= depth) { return; }
           if (internalMap[x] && internalMap[x][y] === WALL) {return; }
@@ -157,6 +161,9 @@
         });
 
         var length = water.length;
+        // We keep track of the walls near the water.
+        if (length !== 0) edgeWalls.push(cell); 
+
         // Only care for corner walls.
         if (length < 3 || length > 5) {return;}
 
@@ -286,6 +293,8 @@
       this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.player.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
       this.enemy.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);
+
+      // this.game.camera.follow(this.player);
     },
 
     isPassable: function(x, y) {
@@ -347,6 +356,8 @@
         light: this.light,
         objects: litObjects
       });
+
+      this.darkmask = new DarkMask({ lights: [this.light] });
     },
 
     loadWeapons: function() {
@@ -405,14 +416,16 @@
     },
 
     computeLighting: function() {
-      var player = this.player, bitmap = this.bitmap;
+      var player = this.player, bitmap = this.bitmap, canvas = bitmap.canvas, context = bitmap.context;
       // Update the light's position    
       this.light.position = new Vec2(player.x, player.y);
       var lighting = this.lighting;
-      lighting.compute(bitmap.canvas.width, bitmap.canvas.height);
-      bitmap.context.fillStyle = "black";
-      bitmap.context.fillRect(0, 0, bitmap.canvas.width, bitmap.canvas.height);
-      lighting.render(bitmap.context);
+      lighting.compute(canvas.width, canvas.height);
+      this.darkmask.compute(canvas.width, canvas.height);
+
+      context.fillStyle = "black";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      lighting.render(context);
       bitmap.dirty = true;
     },
 

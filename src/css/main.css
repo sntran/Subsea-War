@@ -13,3 +13,7 @@ html, body {
 .game {
   margin: 20px auto;
 }
+
+.game > canvas {
+  border: 16px solid #6dd0f7;
+}
