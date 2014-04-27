@@ -1,12 +1,14 @@
 (function() {
   'use strict';
 
-  var SHOT_DELAY = 200, BULLET_SPEED = 200, EMPTY = 1, WALL = 0;
+  var NS = window['subsea-war'];
 
-  var Lamp = illuminated.Lamp
-  , RectangleObject = illuminated.RectangleObject
-  , Vec2 = illuminated.Vec2
-  , Lighting = illuminated.Lighting;
+  var SHOT_DELAY = 200, EMPTY = 1, WALL = 0;
+
+  var Lamp = window.illuminated.Lamp
+  , RectangleObject = window.illuminated.RectangleObject
+  , Vec2 = window.illuminated.Vec2
+  , Lighting = window.illuminated.Lighting;
 
   if (!Array.prototype.every)
   {
@@ -80,7 +82,6 @@
       this.deploySubmarines();
       this.enterSilentMode();
       this.loadWeapons();
-      this.assignControls();
     },
 
     detectWall: function(x, y, empty) {
@@ -265,12 +266,12 @@
       var bottomRight = possibleLocations[1];
       var tiledim = this.tiledim;
 
-      this.player = this.submarines.create(topLeft.x*tiledim, topLeft.y*tiledim, 'sonar', 0);
-      this.enemy = this.submarines.create(bottomRight.x*tiledim, bottomRight.y*tiledim, 'sonar', 0);
-      this.player.anchor.setTo(0.5, 0.5);
-      this.enemy.anchor.setTo(0.5, 0.5);
-      // Flip the enemy vertically.
+      this.player = new NS.Player(this.game, topLeft.x*tiledim, topLeft.y*tiledim, 10);
+      this.enemy = new NS.Enemy(this.game, bottomRight.x*tiledim, bottomRight.y*tiledim, 10);
       this.enemy.scale.x *= -1;
+
+      this.submarines.add(this.player);
+      this.submarines.add(this.enemy);
       this.game.physics.enable(this.submarines, Phaser.Physics.ARCADE);
     },
 
@@ -376,19 +377,7 @@
 
       game.physics.arcade.overlap(submarines, walls);
 
-      if (this.upKey.isDown) {
-        player.y--;
-      } else if (this.downKey.isDown) {
-        player.y++;
-      }
-
-      if (this.leftKey.isDown) {
-        player.x = player.x - 2;
-      } else if (this.rightKey.isDown) {
-        player.x = player.x + 2;
-      }
-
-      if (this.actionKey.isDown) {
+      if (this.input.keyboard.isDown(Phaser.Keyboard.SPACEBAR)) {
         this.shootBullet();
       }
 
@@ -419,34 +408,7 @@
 
       // Get a dead bullet from the pool
       var bullet = this.torpedoes.getFirstDead();
-
-      // If there aren't any bullets available then don't shoot
-      if (bullet === null || bullet === undefined) {return;}
-
-      // Revive the bullet
-      // This makes the bullet "alive"
-      bullet.revive();
-
-      // Bullets should kill themselves when they leave the world.
-      // Phaser takes care of this for me by setting this flag
-      // but you can do it yourself by killing the bullet if
-      // its x,y coordinates are outside of the world.
-      bullet.checkWorldBounds = true;
-      bullet.outOfBoundsKill = true;
-
-      // Set the bullet position to the gun position.
-      bullet.reset(this.player.x, this.player.y);
-
-      // Shoot it
-      bullet.body.velocity.x = BULLET_SPEED;
-      bullet.body.velocity.y = 0;
-    },
-
-    onInputDown: function () {
-      this.game.state.start('menu');
-    },
-
-    render: function() {
+      this.player.shootBullet(bullet);
     }
 
   };
