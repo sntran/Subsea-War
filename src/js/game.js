@@ -281,7 +281,7 @@
 
       this.submarines.add(this.player);
       this.submarines.add(this.enemy);
-      
+
       this.player.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.player.body.collides([this.wallsCollisionGroup, this.submarinesCollisionGroup]);

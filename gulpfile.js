@@ -17,7 +17,17 @@ paths = {
   libs:   [
     'src/bower_components/phaser-official/build/phaser.min.js'
   ],
-  js:     ['src/js/**/*.js'],
+  // js:     ['src/js/**/*.js'],
+  js: [
+    'src/js/submarine.js',
+    'src/js/boot.js',
+    'src/js/preloader.js',
+    'src/js/menu.js',
+    'src/js/illuminated.js',
+    'src/js/game.js',
+    'src/js/main.js',
+    'src/js/rot.js'
+  ],
   dist:   './dist/'
 };
 
@@ -34,7 +44,7 @@ gulp.task('copy', function () {
 });
 
 gulp.task('uglify', ['lint'], function () {
-  var srcs = [paths.libs[0], paths.js[0]];
+  var srcs = [paths.libs[0]].concat(paths.js);
 
   gulp.src(srcs)
     .pipe(concat('main.min.js'))
