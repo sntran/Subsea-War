@@ -15,7 +15,7 @@
   Wall.prototype = Object.create(Phaser.Sprite.prototype);
   Wall.prototype.constructor = Wall;
 
-  Wall.prototype.addLight = function(duration) {
+  Wall.prototype.illuminate = function(duration) {
     var x = this.x, y = this.y, width = this.width, height = this.height, game = this.game;
     var edges = this.edges;
     this.water.forEach(function (water) {

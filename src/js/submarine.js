@@ -21,6 +21,13 @@
   Submarine.prototype = Object.create(Phaser.Sprite.prototype);
   Submarine.prototype.constructor = Submarine;
 
+  Submarine.prototype.illuminate = function (duration) {
+    duration = 500; // We don't take the specified duration.
+    var currentAlpha = this.alpha;
+    this.alpha = 1;
+    this.game.add.tween(this).to( { alpha: currentAlpha }, duration, Phaser.Easing.Linear.None, true, 0);
+  };
+
   Submarine.prototype.update = function() {
   };
 

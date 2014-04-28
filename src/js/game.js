@@ -64,7 +64,7 @@
 
       this.noiseLevel = 48;
 
-      game.physics.startSystem(Phaser.Physics.ARCADE);
+      game.physics.startSystem(Phaser.Physics.Arcade);
       //  Enable p2 physics
       game.physics.startSystem(Phaser.Physics.P2JS);
       //  Turn on impact events for the world, without this we get no collision callbacks
@@ -297,10 +297,9 @@
 
       this.player.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
-      this.player.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup]);
-      this.enemy.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup]);
+      this.player.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup, this.bulletsCollisionGroup]);
+      this.enemy.body.collides([this.wallsCollisionGroup, this.edgeWallsCollisionGroup, this.submarinesCollisionGroup, this.bulletsCollisionGroup]);
 
-      // this.game.camera.follow(this.player);
     },
 
     isPassable: function(x, y) {
@@ -399,29 +398,30 @@
       sonar.lifespan = 3000;
       sonar.body.collides([this.wallsCollisionGroup]);
       sonar.body.collides(this.edgeWallsCollisionGroup);
+      sonar.body.collides(this.submarinesCollisionGroup);
       sonar.kill();
-      sonar.body.onBeginContact.add(this.reflectWall, this);
+      sonar.body.onBeginContact.add(this.illuminateTarget, this);
     },
 
     assignControls: function() {
       var keyboard = this.game.input.keyboard;
       this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 
-      var increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
-      var decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
+      this.increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
+      this.decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
 
-      increaseKey.onDown.add(function() {
+      this.increaseKey.onDown.add(function() {
         this.noiseLevel = Math.min(this.noiseLevel + 16, MAX_NOISE_LEVEL);
       }, this);
 
-      decreaseKey.onDown.add(function() {
+      this.decreaseKey.onDown.add(function() {
         this.noiseLevel = Math.max(this.noiseLevel - 16, 0.1);
       }, this);
     },
 
-    reflectWall: function(body, shapeA, shapeB, equation) {
-      var wall = body.sprite;
-      wall.addLight(5000);
+    illuminateTarget: function(body, shapeA, shapeB, equation) {
+      var target = body.sprite;
+      target.illuminate(5000);
     },
 
     update: function () {
