@@ -43,7 +43,7 @@
     bullet.reset(this.x, this.y);
 
     // Shoot it
-    bullet.body.velocity.x = this.BULLET_SPEED;
+    bullet.body.velocity.x = this.BULLET_SPEED*this.scale.x;
     bullet.body.velocity.y = 0;
   };
 
@@ -63,13 +63,17 @@
     if (this.upKey.isDown) {
       this.body.moveUp(32);
     } else if (this.downKey.isDown) {
-      this.body.moveDown(32)
+      this.body.moveDown(32);
     }
 
     if (this.leftKey.isDown) {
       this.body.moveLeft(64);
+      if (this.scale.x > 0) 
+        this.scale.x *= -1;
     } else if (this.rightKey.isDown) {
-      this.body.moveRight(64)
+      this.body.moveRight(64);
+      if (this.scale.x < 0) 
+        this.scale.x *= -1;
     }
 
     if (this.actionKey.isDown) {
