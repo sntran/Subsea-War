@@ -7,6 +7,7 @@
 
   var Lamp = window.illuminated.Lamp
   , RectangleObject = window.illuminated.RectangleObject
+  , PolygonObject = window.illuminated.PolygonObject
   , Vec2 = window.illuminated.Vec2
   , Lighting = window.illuminated.Lighting
   , DarkMask = window.illuminated.DarkMask;
@@ -61,6 +62,8 @@
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
 
+      this.noiseLevel = 48;
+
       game.physics.startSystem(Phaser.Physics.ARCADE);
       //  Enable p2 physics
       game.physics.startSystem(Phaser.Physics.P2JS);
@@ -99,6 +102,7 @@
       this.deploySubmarines();
       this.enterSilentMode();
       this.loadWeapons();
+      this.assignControls();
     },
 
     detectWall: function(x, y, empty) {
@@ -287,10 +291,12 @@
       this.player = new NS.Player(this.game, topLeft.x*tiledim, topLeft.y*tiledim, 10);
       this.enemy = new NS.Enemy(this.game, bottomRight.x*tiledim, bottomRight.y*tiledim, 10);
       this.enemy.scale.x *= -1;
-      this.enemy.visible = false;
+      this.enemy.alpha = 0;
 
       this.submarines.add(this.player);
       this.submarines.add(this.enemy);
+
+      this.player.body.setZeroDamping();
 
       this.player.body.setCollisionGroup(this.submarinesCollisionGroup);
       this.enemy.body.setCollisionGroup(this.submarinesCollisionGroup);
@@ -341,7 +347,7 @@
       this.light = new Lamp({
         position: new Vec2(player.x, player.y),
         color: '519ab8',
-        distance: 64, // Intensity
+        distance: this.noiseLevel, // Intensity
         // radius: 20,
         // samples: 50,
         diffuse: 0.5
@@ -379,30 +385,44 @@
         });
         torpedo.body.collides(this.submarinesCollisionGroup);
         torpedo.body.fixedRotation = true;
+        torpedo.body.collides(this.submarinesCollisionGroup, function(bulletBody, submarineBody) {
+          var submarine = submarineBody.sprite;
+          submarine.damage(1);
+        });
+
         torpedo.kill();
       }
 
       var sonar = this.sonar = game.add.sprite(0, 0, 'sonar', 4);
       game.physics.p2.enable(this.sonar, false);
-      sonar.anchor.setTo(0.5, 0.5);
+      // sonar.anchor.setTo(0.5, 0.5);
       sonar.body.allowRotation = false;
       sonar.body.fixedRotation = true;
       sonar.body.setCollisionGroup(this.bulletsCollisionGroup);
       sonar.lifespan = 3000;
       sonar.body.collides([this.wallsCollisionGroup]);
-      sonar.body.collides(this.edgeWallsCollisionGroup, function(_, wallBody) {
-        console.log("Hit edge wall");
-      });
+      sonar.body.collides(this.edgeWallsCollisionGroup);
       sonar.kill();
+      sonar.body.onBeginContact.add(this.reflectWall, this);
     },
 
     assignControls: function() {
       var keyboard = this.game.input.keyboard;
-      this.upKey = keyboard.addKey(Phaser.Keyboard.UP);
-      this.downKey = keyboard.addKey(Phaser.Keyboard.DOWN);
-      this.leftKey = keyboard.addKey(Phaser.Keyboard.LEFT);
-      this.rightKey = keyboard.addKey(Phaser.Keyboard.RIGHT);
       this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+      var increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
+      var decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
+
+      increaseKey.onDown.add(function() {
+        this.noiseLevel = Math.min(this.noiseLevel + 16, 64);
+      }, this);
+
+      decreaseKey.onDown.add(function() {
+        this.noiseLevel = Math.max(this.noiseLevel - 16, 0.1);
+      }, this);
+    },
+
+    reflectWall: function(body, shapeA, shapeB, equation) {
     },
 
     update: function () {
@@ -425,9 +445,11 @@
     },
 
     computeLighting: function() {
-      var player = this.player, bitmap = this.lightingBitmap, canvas = bitmap.canvas, context = bitmap.context;
+      var player = this.player, enemy = this.enemy, game = this.game, light = this.light,
+        bitmap = this.lightingBitmap, canvas = bitmap.canvas, context = bitmap.context;
       // Update the light's position    
-      this.light.position = new Vec2(player.x, player.y);
+      light.position = new Vec2(player.x, player.y);
+      light.distance = this.noiseLevel;
       var lighting = this.lighting;
       lighting.compute(canvas.width, canvas.height);
       this.darkmask.compute(canvas.width, canvas.height);
@@ -436,6 +458,20 @@
       context.fillRect(0, 0, canvas.width, canvas.height);
       lighting.render(context);
       bitmap.dirty = true;
+
+      var lightBounds = light.bounds();
+      var topLeft = lightBounds.topleft, bottomRight = lightBounds.bottomright;
+      var lightWidth = Math.abs(bottomRight.x-topLeft.x);
+      var lightHeight = Math.abs(bottomRight.y-topLeft.y);
+      lightBounds = new Phaser.Rectangle(topLeft.x, topLeft.y, lightWidth, lightHeight);
+      var enemyBounds = enemy.getBounds();
+      if (Phaser.Rectangle.intersects(lightBounds, enemyBounds)) {
+        var distance = game.math.distance(player.x, player.y, enemy.x, enemy.y);
+        // Increase the alpha of the enemy as we come closer.
+        enemy.alpha = 1-(distance/lightWidth);
+      } else {
+        enemy.alpha = 0;
+      }
     },
 
     computePingTrail: function() {
@@ -461,15 +497,19 @@
     },
 
     ping: function() {
-      this.sonar.revive();
-      // this.sonar.health = 5;
-      this.sonar.lifespan = 3000;
-      this.sonar.reset(this.player.x - 8, this.player.y - 8);
-      this.game.physics.arcade.moveToPointer(this.sonar, 300);
+      var sonar = this.sonar;
+      if (sonar.alive) {return;}
+      var game = this.game;
+      sonar.revive();
+      sonar.lifespan = 3000;
+      sonar.reset(this.player.x, this.player.y);
+
+      this.game.physics.arcade.moveToPointer(sonar, 300);
     },
 
     render: function() {
       // this.game.debug.spriteBounds(this.walls);
+      // this.game.debug.inputInfo(8, 8);
     }
 
   };

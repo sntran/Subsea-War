@@ -3,7 +3,7 @@
 
   function Submarine(game, x, y, hp, weapons) {
     Phaser.Sprite.call(this, game, x, y, 'sonar', 0);
-    this.anchor.setTo(0.5, 0.5);
+    // this.anchor.setTo(0.5, 0.5);
     game.physics.enable(this, Phaser.Physics.P2JS);
 
     var keyboard = game.input.keyboard;
@@ -15,6 +15,7 @@
 
     this.BULLET_SPEED = 200;
     this.body.fixedRotation = true;
+    this.health = hp || 10;
   }
 
   Submarine.prototype = Object.create(Phaser.Sprite.prototype);
@@ -57,6 +58,8 @@
   PlayerSubmarine.prototype.constructor = PlayerSubmarine;
 
   PlayerSubmarine.prototype.update = function() {
+    this.body.setZeroVelocity();
+
     if (this.upKey.isDown) {
       this.body.moveUp(32);
     } else if (this.downKey.isDown) {
