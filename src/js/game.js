@@ -3,7 +3,7 @@
 
   var NS = window['subsea-war'];
 
-  var SHOT_DELAY = 200, EMPTY = 1, WALL = 0;
+  var SHOT_DELAY = 200, EMPTY = 1, WALL = 0, MAX_NOISE_LEVEL = 64;
 
   var Lamp = window.illuminated.Lamp
   , RectangleObject = window.illuminated.RectangleObject
@@ -414,7 +414,7 @@
       var decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
 
       increaseKey.onDown.add(function() {
-        this.noiseLevel = Math.min(this.noiseLevel + 16, 64);
+        this.noiseLevel = Math.min(this.noiseLevel + 16, MAX_NOISE_LEVEL);
       }, this);
 
       decreaseKey.onDown.add(function() {
@@ -450,6 +450,9 @@
       // Update the light's position    
       light.position = new Vec2(player.x, player.y);
       light.distance = this.noiseLevel;
+      // Adjust the visibility of the player based on their noise level.
+      player.alpha = this.noiseLevel/MAX_NOISE_LEVEL;
+      
       var lighting = this.lighting;
       lighting.compute(canvas.width, canvas.height);
       this.darkmask.compute(canvas.width, canvas.height);
