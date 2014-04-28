@@ -3,7 +3,7 @@
 
   var NS = window['subsea-war'];
 
-  var SHOT_DELAY = 200, EMPTY = 1, WALL = 0, MAX_NOISE_LEVEL = 64;
+  var SHOT_DELAY = 200, EMPTY = 1, WALL = 0;
 
   var Lamp = window.illuminated.Lamp
   , RectangleObject = window.illuminated.RectangleObject
@@ -61,8 +61,6 @@
       var game = this.game;
       this.width = game.width/this.tiledim;
       this.depth = game.height/this.tiledim;
-
-      this.noiseLevel = 48;
 
       game.physics.startSystem(Phaser.Physics.Arcade);
       //  Enable p2 physics
@@ -343,7 +341,7 @@
       this.light = new Lamp({
         position: new Vec2(player.x, player.y),
         color: '519ab8',
-        distance: this.noiseLevel, // Intensity
+        distance: this.player.fov, // Intensity
         // radius: 20,
         // samples: 50,
         diffuse: 0.5
@@ -404,19 +402,8 @@
     },
 
     assignControls: function() {
-      var keyboard = this.game.input.keyboard;
+      var keyboard = this.game.input.keyboard, player = this.player;
       this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
-
-      this.increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
-      this.decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
-
-      this.increaseKey.onDown.add(function() {
-        this.noiseLevel = Math.min(this.noiseLevel + 16, MAX_NOISE_LEVEL);
-      }, this);
-
-      this.decreaseKey.onDown.add(function() {
-        this.noiseLevel = Math.max(this.noiseLevel - 16, 0.1);
-      }, this);
     },
 
     illuminateTarget: function(body, shapeA, shapeB, equation) {
@@ -448,9 +435,7 @@
         bitmap = this.lightingBitmap, canvas = bitmap.canvas, context = bitmap.context;
       // Update the light's position    
       light.position = new Vec2(player.x, player.y);
-      light.distance = this.noiseLevel;
-      // Adjust the visibility of the player based on their noise level.
-      player.alpha = this.noiseLevel/MAX_NOISE_LEVEL;
+      light.distance = player.fov;
 
       var lighting = this.lighting;
       lighting.compute(canvas.width, canvas.height);

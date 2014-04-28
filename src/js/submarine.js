@@ -1,21 +1,17 @@
 (function () {
   'use strict';
 
+  var MAX_NOISE_LEVEL = 64;
+
   function Submarine(game, x, y, hp, weapons) {
     Phaser.Sprite.call(this, game, x, y, 'sonar', 0);
     // this.anchor.setTo(0.5, 0.5);
     game.physics.enable(this, Phaser.Physics.P2JS);
 
-    var keyboard = game.input.keyboard;
-    this.upKey = keyboard.addKey(Phaser.Keyboard.W);
-    this.downKey = keyboard.addKey(Phaser.Keyboard.S);
-    this.leftKey = keyboard.addKey(Phaser.Keyboard.A);
-    this.rightKey = keyboard.addKey(Phaser.Keyboard.D);
-    this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
-
     this.BULLET_SPEED = 200;
     this.body.fixedRotation = true;
     this.health = hp || 10;
+    this.fov = 48;
   }
 
   Submarine.prototype = Object.create(Phaser.Sprite.prototype);
@@ -59,12 +55,33 @@
 
   function PlayerSubmarine(game, x, y, hp) {
     Submarine.call(this, game, x, y, 10);
+
+    var keyboard = game.input.keyboard;
+    this.upKey = keyboard.addKey(Phaser.Keyboard.W);
+    this.downKey = keyboard.addKey(Phaser.Keyboard.S);
+    this.leftKey = keyboard.addKey(Phaser.Keyboard.A);
+    this.rightKey = keyboard.addKey(Phaser.Keyboard.D);
+    this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+    this.increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
+    this.decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
+
+    this.increaseKey.onDown.add(function() {
+      this.fov = Math.min(this.fov + 16, MAX_NOISE_LEVEL);
+    }, this);
+
+    this.decreaseKey.onDown.add(function() {
+      this.fov = Math.max(this.fov - 16, 0.1);
+    }, this);
   }
 
   PlayerSubmarine.prototype = Object.create(Submarine.prototype);
   PlayerSubmarine.prototype.constructor = PlayerSubmarine;
 
   PlayerSubmarine.prototype.update = function() {
+    // Adjust the visibility of the player based on their noise level.
+    this.alpha = this.fov/MAX_NOISE_LEVEL;
+    
     this.body.setZeroVelocity();
 
     if (this.upKey.isDown) {
@@ -88,10 +105,23 @@
     }
   }
 
+  /* Player submarine */
+
+  function EnemySubmarine(game, x, y, hp) {
+    Submarine.call(this, game, x, y, hp);
+  }
+
+  EnemySubmarine.prototype = Object.create(Submarine.prototype);
+  EnemySubmarine.prototype.constructor = EnemySubmarine;
+
+  EnemySubmarine.prototype.update = function() {
+    this.body.setZeroVelocity();
+  }
+
   window['subsea-war'] = window['subsea-war'] || {};
   window['subsea-war'].Submarine = Submarine;
   window['subsea-war'].Player = PlayerSubmarine;
-  window['subsea-war'].Enemy = Submarine;
+  window['subsea-war'].Enemy = EnemySubmarine;
 
 }());
 
