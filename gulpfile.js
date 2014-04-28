@@ -20,6 +20,7 @@ paths = {
   // js:     ['src/js/**/*.js'],
   js: [
     'src/js/submarine.js',
+    'src/js/wall.js',
     'src/js/boot.js',
     'src/js/preloader.js',
     'src/js/menu.js',

@@ -112,10 +112,8 @@
         return;
       }
 
-      var wall = this.walls.create(x * this.tiledim, y * this.tiledim, 'sonar', 1);
-      wall.anchor.setTo(0.5, 0.5);
-      this.game.physics.enable(wall, Phaser.Physics.P2JS);
-      wall.body.static = true;
+      var wall = new NS.Wall(this.game, x * this.tiledim, y * this.tiledim)
+      this.walls.add(wall);
       wall.body.setCollisionGroup(this.wallsCollisionGroup);
       wall.body.collides([this.submarinesCollisionGroup, this.bulletsCollisionGroup]);
     },
@@ -148,8 +146,6 @@
       var tiledim = this.tiledim, dirs = ROT.DIRS[8], self = this;
       var internalMap = this.map._map, width = this.width, depth = this.depth;
 
-      // var edgeWalls = this.edgeWalls = this.game.add.group();
-
       this.walls.forEach(function (cell, idx) {
         var cellX = cell.x/tiledim, cellY = cell.y/tiledim;
 
@@ -168,6 +164,7 @@
         // We keep track of the walls near the water.
         if (length !== 0) {
           cell.body.setCollisionGroup(self.edgeWallsCollisionGroup); 
+          cell.water = water;
         }
 
         // Only care for corner walls.
@@ -256,9 +253,9 @@
         }
 
         if (length === 5) {
-          
           // cell.x -= tiledim/2;
           // cell.y -= tiledim/2;
+          return;
         }
 
         if (arrayEquals(water, [[1,1], [0,1], [-1,1]])
@@ -423,6 +420,8 @@
     },
 
     reflectWall: function(body, shapeA, shapeB, equation) {
+      var wall = body.sprite;
+      wall.addLight(5000);
     },
 
     update: function () {
@@ -452,7 +451,7 @@
       light.distance = this.noiseLevel;
       // Adjust the visibility of the player based on their noise level.
       player.alpha = this.noiseLevel/MAX_NOISE_LEVEL;
-      
+
       var lighting = this.lighting;
       lighting.compute(canvas.width, canvas.height);
       this.darkmask.compute(canvas.width, canvas.height);
@@ -480,7 +479,6 @@
     computePingTrail: function() {
       var sonar = this.sonar;
       var bitmap = this.trailTexture;
-      // var canvas = bitmap.canvas, context = bitmap.context;
       bitmap.renderXY(sonar, sonar.x, sonar.y, !sonar.alive);
     },
 
