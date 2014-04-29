@@ -56,12 +56,13 @@
   function PlayerSubmarine(game, x, y, hp) {
     Submarine.call(this, game, x, y, 10);
 
+    this.name = "PlayerSubmarine";
+
     var keyboard = game.input.keyboard;
     this.upKey = keyboard.addKey(Phaser.Keyboard.W);
     this.downKey = keyboard.addKey(Phaser.Keyboard.S);
     this.leftKey = keyboard.addKey(Phaser.Keyboard.A);
     this.rightKey = keyboard.addKey(Phaser.Keyboard.D);
-    this.actionKey = keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 
     this.increaseKey = keyboard.addKey(Phaser.Keyboard.CLOSED_BRACKET);
     this.decreaseKey = keyboard.addKey(Phaser.Keyboard.OPEN_BRACKET);
@@ -81,7 +82,7 @@
   PlayerSubmarine.prototype.update = function() {
     // Adjust the visibility of the player based on their noise level.
     this.alpha = this.fov/MAX_NOISE_LEVEL;
-    
+
     this.body.setZeroVelocity();
 
     if (this.upKey.isDown) {
@@ -99,23 +100,41 @@
       if (this.scale.x < 0) 
         this.scale.x *= -1;
     }
-
-    if (this.actionKey.isDown) {
-      this.shootBullet();
-    }
   }
 
   /* Player submarine */
 
   function EnemySubmarine(game, x, y, hp) {
     Submarine.call(this, game, x, y, hp);
+
+    this.name = "EnemySubmarine";
+
+    this.circleRadius = 5 + Math.random() * 10;
+    this.wanderAngle = Math.random() * 2;
+    this.wanderChange = Math.random() * 4;
+    var dirs = ROT.DIRS[8];
+    this.direction = dirs[Math.floor(ROT.RNG.getUniform() * 8)];
+
+    this.body.onBeginContact.add(this.changeDirection, this);
   }
 
   EnemySubmarine.prototype = Object.create(Submarine.prototype);
   EnemySubmarine.prototype.constructor = EnemySubmarine;
 
+  EnemySubmarine.prototype.changeDirection = function(body) {
+    var wall = body.sprite;
+    if (wall && wall.name === "Wall") {
+      var dirs = ROT.DIRS[8];
+      this.direction = dirs[Math.floor(ROT.RNG.getUniform() * 8)];
+    }
+  };
+
   EnemySubmarine.prototype.update = function() {
-    this.body.setZeroVelocity();
+    var dirX = this.direction[0], dirY = this.direction[1];
+    // this.body.setZeroVelocity();
+
+    this.body.velocity.x += 16*dirY;
+    this.body.velocity.y += 16*dirY;
   }
 
   window['subsea-war'] = window['subsea-war'] || {};

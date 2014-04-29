@@ -9,6 +9,7 @@
 
     var width = this.width, height = this.height;
     this.water = [];
+    this.name = "Wall";
     this.edges = game.add.group();
   }
 

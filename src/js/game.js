@@ -110,7 +110,7 @@
         return;
       }
 
-      var wall = new NS.Wall(this.game, x * this.tiledim, y * this.tiledim)
+      var wall = new NS.Wall(this.game, x * this.tiledim, y * this.tiledim);
       this.walls.add(wall);
       wall.body.setCollisionGroup(this.wallsCollisionGroup);
       wall.body.collides([this.submarinesCollisionGroup, this.bulletsCollisionGroup]);
@@ -285,6 +285,7 @@
 
       this.player = new NS.Player(this.game, topLeft.x*tiledim, topLeft.y*tiledim, 10);
       this.enemy = new NS.Enemy(this.game, bottomRight.x*tiledim, bottomRight.y*tiledim, 10);
+      // this.enemy = new NS.Enemy(this.game, (topLeft.x+1)*tiledim, (topLeft.y+1)*tiledim, 10);
       this.enemy.scale.x *= -1;
       this.enemy.alpha = 0;
 
@@ -374,14 +375,22 @@
         game.physics.p2.enable(torpedo, false);
         // Set its initial state to "dead".
         torpedo.body.setCollisionGroup(this.bulletsCollisionGroup);
-        torpedo.body.collides(this.edgeWallsCollisionGroup, function(bulletBody, wallBody) {
+        torpedo.body.collides(this.edgeWallsCollisionGroup, function (bulletBody, wallBody) {
           bulletBody.sprite.kill();
         });
-        torpedo.body.collides(this.submarinesCollisionGroup);
         torpedo.body.fixedRotation = true;
-        torpedo.body.collides(this.submarinesCollisionGroup, function(bulletBody, submarineBody) {
+        torpedo.body.collides(this.submarinesCollisionGroup, function (bulletBody, submarineBody) {
           var submarine = submarineBody.sprite;
-          submarine.damage(1);
+          if (submarine && submarine.name === "EnemySubmarine") {
+            // if (submarine.alive) {
+              submarine.health -= 1;
+              if (submarine.health <= 0) {
+                  submarine.kill();
+                  game.state.start('gameover', true, false, true);
+              }
+            // }
+            bulletBody.sprite.kill();
+          }
         });
 
         torpedo.kill();

@@ -24,6 +24,7 @@ paths = {
     'src/js/boot.js',
     'src/js/preloader.js',
     'src/js/menu.js',
+    'src/js/gameover.js',
     'src/js/illuminated.js',
     'src/js/game.js',
     'src/js/main.js',
